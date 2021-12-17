@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import os
 import dlib
+from tqdm import tqdm
 
 sys.path.append(".")
 sys.path.append("..")
@@ -31,7 +32,8 @@ def main(args):
         latent_codes = torch.load(latents_file_path).to(device)
     else:
         latent_codes = get_all_latents(net, data_loader, args.n_sample, is_cars=is_cars)
-        torch.save(latent_codes, latents_file_path)
+        os.makedirs(os.path.dirname(latents_file_path), exist_ok=True)
+        torch.save(latent_codes, latents_file_path, _use_new_zipfile_serialization=False)
 
     if not args.latents_only:
         generate_inversions(args, generator, latent_codes, is_cars=is_cars)
@@ -46,7 +48,7 @@ def setup_data_loader(args, opts):
     if args.align:
         align_function = run_alignment
     test_dataset = InferenceDataset(root=images_path,
-                                    transform=transforms_dict['transform_test'],
+                                    transform=transforms_dict['transform_inference'],
                                     preprocess=align_function,
                                     opts=opts)
 
@@ -79,7 +81,7 @@ def get_all_latents(net, data_loader, n_images=None, is_cars=False):
     all_latents = []
     i = 0
     with torch.no_grad():
-        for batch in data_loader:
+        for batch in tqdm(data_loader):
             if n_images is not None and i > n_images:
                 break
             x = batch
@@ -93,6 +95,7 @@ def get_all_latents(net, data_loader, n_images=None, is_cars=False):
 def save_image(img, save_dir, idx):
     result = tensor2im(img)
     im_save_path = os.path.join(save_dir, f"{idx:05d}.jpg")
+    os.makedirs(os.path.dirname(im_save_path), exist_ok=True)
     Image.fromarray(np.array(result)).save(im_save_path)
 
 
